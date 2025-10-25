@@ -1,0 +1,16 @@
+nvidia-smi
+
+----------------------------------------------LA-------------------------------------------------
+CUDA_VISIBLE_DEVICES=5 python main.py --config='./conf/base.yaml'
+
+python main.py --config='./conf/base.yaml' --override eval_track='DF'
+
+-----------------------------------------pretrained_model--------------------------------------------------------
+21LA:
+    Number of trials in the evaluation set: 148176
+    min_tDCF: 0.2099
+    eer: 0.93
+21DF:
+    eer: 1.88
+InTheWild:
+    err:      6.71  

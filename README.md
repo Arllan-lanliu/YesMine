@@ -15,15 +15,17 @@ You need to create the running environment by [Anaconda](https://www.anaconda.co
 First, create and activate the environment:
 
 ```bash
-conda create -n XLSR_Mamba python=3.10
-conda activate XLSR_Mamba
+conda create -n XLSR_Mamba3.10 python=3.10
+conda activate XLSR_Mamba3.10
 ```
 
 Then install the requirements:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt --no-deps
 ```
+
+gpuRIR==1.2.0
 
 Install fairseq:
 

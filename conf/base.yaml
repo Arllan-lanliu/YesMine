@@ -1,0 +1,117 @@
+# ============================================ base  ============================================
+database_path: "./data/database/"  
+# database_path/
+#   |- LA
+#   |  |- ASVspoof2021_LA_eval/flac
+#   |  |- ASVspoof2019_LA_train/flac
+#   |  |- ASVspoof2019_LA_dev/flac
+#   |  |- ASVspoof2021_LA_eval/flac
+#   |- DF
+#   |  |- ASVspoof2021_DF_eval/flac
+#   |- In-the-Wild
+#      |- wav
+
+
+protocols_path: "./data/protocols/" 
+# protocols_path/
+#   |- LA
+#   |  |- ASVspoof_LA_cm_protocols
+#   |     |- ASVspoof2021.LA.cm.eval.trl.txt
+#   |     |- ASVspoof2019.LA.cm.dev.trl.txt 
+#   |     |- ASVspoof2019.LA.cm.train.trn.txt
+#   |     |- ASVspoof2021.LA.cm.eval.trl.txt
+#   |- DF
+#   |  |- ASVspoof_DF_cm_protocols
+#   |     |- ASVspoof2021.DF.cm.eval.trl.txt
+#   |- In-the-Wild
+#      |- meta.csv
+
+keys_path: "./data/keys/"   
+# keys_path/
+#   |- LA
+#   |  |- ASV
+#   |  |   |- trial_metadata.txt
+#   |  |   |- score.txt
+#   |  |- CM
+#   |      |- trial_metadata.txt
+#   |- DF
+#   |  |- CM
+#   |      |- trial_metadata.txt
+#   |- In-the-Wild
+#      |- meta.csv
+
+wav2vec_path: "./pretrained/xlsr2_300m.pt"    # Path to the pretrained XLSR-Wav2Vec2.0 model
+pretrained_model_path: null        # Path to pretrained model to fine-tune or continue training, null: train from scratch
+train: true                        # Whether to train the model
+model_tag: "TRY1"                    # Name of the saved model, null: auto-generate name based on configuration
+train_track: "LA"           # Track to train the model on, "LA": train on ASVspoof2019 LA train and dev set
+eval_track: "In-the-Wild"   # Track to evaluate the model on
+                            # "LA": evaluate on ASVspoof2021 LA eval set
+                            # "DF": evaluate on ASVspoof2021 DF eval set
+                            # "In-the-Wild": evaluate on In-the-Wild dataset
+
+# ============================================ train ============================================
+batch_size: 8               # Batch size
+train_epoch: 1            # Number of training epochs 200
+impove_epoch_patience: 1   # Early stopping patience based on dev set performance 10
+lr: 0.000001                # Learning rate
+weight_decay: 0.0001        # Weight decay
+loss: "WCE"                 # default "WCE"
+algo: 5                     # Rawboost algos discriptions. (3 for DF, 5 for LA and ITW), default 0
+                            # 0: No augmentation 
+                            # 1: LnL_convolutive_noise
+                            # 2: ISD_additive_noise
+                            # 3: SSI_additive_noise
+                            # 4: series algo (1+2+3)
+                            # 5: series algo (1+2)
+                            # 6: series algo (1+3)
+                            # 7: series algo(2+3)
+                            # 8: parallel algo(1,2) 
+
+convolutive:
+  filters: 10                # Number of filters
+  frequency_bands: 5         # Number of bands
+  frequency_range:
+    min: 20                  # Minimum frequency (Hz)
+    max: 8000                # Maximum frequency (Hz)
+  bandwidth_range:
+    min: 100                 # Minimum bandwidth (Hz)
+    max: 1000                # Maximum bandwidth (Hz)
+  coefficients:
+    min: 0.1                 # Minimum coefficient
+    max: 0.9                 # Maximum coefficient
+  gain:
+    min: 0.1                 # Minimum gain
+    max: 0.9                 # Maximum gain
+  bias:
+    min: 0.1                 # Minimum bias for linear/non-linear
+    max: 0.9                 # Maximum bias for linear/non-linear
+
+isd_noise:
+  probability: 0.5           # Probability for impulsive noise
+  std_dev: 2.0               # Standard deviation for impulsive noise
+
+ssi_noise:
+  snr_range:
+    min: 10.0                # Minimum SNR for additive noise
+    max: 30.0                # Maximum SNR for additive noise
+
+algorithm_combinations:
+  4: ["convolutive", "isd_noise", "ssi_noise"]  # (1+2+3)
+  5: ["convolutive", "isd_noise"]               # (1+2) [LA and ITW remommended]
+  6: ["convolutive", "ssi_noise"]               # (1+3)
+  7: ["isd_noise", "ssi_noise"]                 # (2+3)
+  8: ["convolutive", "isd_noise"]               # (1,2)
+
+# ============================================ model ============================================
+emb_size: 144               # Embedding size of the model
+num_encoders: 12            # Number of encoders of the mamba blocks
+FT_W2V: true                # Whether to fine-tune the W2V or not
+seed: 1234                  # Random seed, default: 1234
+comment: null               # Comment to describe the saved model
+comment_eval: null          # Comment to describe the saved scores
+
+# ============================================ evaluation ============================================
+n_mejores_loss: 5           # Save the n-best models
+average_model: true         # Whether average the weight of the n_best epochs, default true
+n_average_model: 5          

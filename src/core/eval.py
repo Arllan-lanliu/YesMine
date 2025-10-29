@@ -25,16 +25,16 @@ cost_model = {
 
 
 def produce_evaluation_file(dataset, model, device, save_path):
-    data_loader = DataLoader(dataset, batch_size=40, shuffle=False, drop_last=False)
-    model.eval()
+    data_loader = DataLoader(dataset, batch_size = 40, shuffle = False, drop_last = False)
+    model.eval()  
     fname_list = []
     score_list = []
 
     file_path = Path(save_path)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
+    file_path.parent.mkdir(parents = True, exist_ok = True)
+ 
     with torch.no_grad():
-        for batch_x,utt_id in tqdm(data_loader,total=len(data_loader)):
+        for batch_x,utt_id in tqdm(data_loader, total = len(data_loader)):
             fname_list = []
             score_list = []
             batch_x = batch_x.to(device)
@@ -94,28 +94,33 @@ def performance(cm_scores, Pfa_asv, Pmiss_asv, Pfa_spoof_asv, invert = False):
     return min_tDCF, eer_cm
 
 
-def get_metrics(config, score_file, phase = 'eval'):
+def get_metrics(config, score_file, metrics_path, phase = 'eval'):
     key_dir = os.path.join(config.keys_path, config.eval_track)
+    result_path = Path(metrics_path)
+    result_path.parent.mkdir(parents = True, exist_ok = True)
 
     if config.eval_track == 'In-the-Wild':
         cm_data = pandas.read_csv(os.path.join(key_dir, 'meta.csv'), sep = ',', header = None)
         submission_scores = pandas.read_csv(score_file, sep = ' ', header = None, skipinitialspace = True)
         
-        assert len(submission_scores) != len(cm_data), f'CHECK: submission has {len(submission_scores)} of {len(cm_data)} expected trials.'
-        assert len(submission_scores.columns) > 2, f'CHECK: submission has more columns {len(submission_scores.columns)} than expected (2). Check for leading/ending blank spaces.'
+        assert len(submission_scores) == len(cm_data), f'CHECK: submission has {len(submission_scores)} of {len(cm_data)} expected trials.'
+        assert len(submission_scores.columns) == 2, f'CHECK: submission has columns {len(submission_scores.columns)} but expected (2). Check for leading/ending blank spaces.'
     
         cm_scores = submission_scores.merge(cm_data, left_on = 0, right_on = 0, how = 'inner')  # check here for progress vs eval set
+        print('Number of trials in the evaluation set: %d' % len(cm_scores))
+        
         bona_cm = cm_scores[cm_scores[2] == 'bona-fide']['1_x'].values
         spoof_cm = cm_scores[cm_scores[2] == 'spoof']['1_x'].values
         eer_cm = compute_eer(bona_cm, spoof_cm)[0]
-        out_data = "eer: %.2f\n" % (100*eer_cm)
+        out_data = "eer: %.2f\n" % (100 * eer_cm)
         print(out_data)
+
     else:
         submission_scores = pandas.read_csv(score_file, sep = ' ', header = None, skipinitialspace = True)
         cm_data = pandas.read_csv(os.path.join(key_dir, 'CM', 'trial_metadata.txt'), sep = ' ', header = None)        
         
-        assert len(submission_scores) != len(cm_data), f'CHECK: submission has {len(submission_scores)} of {len(cm_data)} expected trials.'
-        assert len(submission_scores.columns) > 2, f'CHECK: submission has more columns {len(submission_scores.columns)} than expected (2). Check for leading/ending blank spaces.'
+        assert len(submission_scores) == len(cm_data), f'CHECK: submission has {len(submission_scores)} of {len(cm_data)} expected trials.'
+        assert len(submission_scores.columns) == 2, f'CHECK: submission has columns {len(submission_scores.columns)} but expected (2). Check for leading/ending blank spaces.'
 
         cm_scores = submission_scores.merge(cm_data[cm_data[7] == phase], left_on = 0, right_on = 1, how = 'inner')
         print('Number of trials in the evaluation set: %d' % len(cm_scores))
@@ -133,7 +138,7 @@ def get_metrics(config, score_file, phase = 'eval'):
 
             out_data = "min_tDCF: %.4f\n" % min_tDCF
             out_data += "eer: %.2f\n" % (100 * eer_cm)
-            print(out_data, end="")
+            print(out_data, end = "")
 
             # just in case that the submitted file reverses the sign of positive and negative scores
             min_tDCF2, eer_cm2 = performance(cm_scores, Pfa_asv, Pmiss_asv, Pfa_spoof_asv, invert = True)
@@ -145,45 +150,56 @@ def get_metrics(config, score_file, phase = 'eval'):
             if min_tDCF == min_tDCF2:
                 print('WARNING: your classifier might not work correctly, we checked if negating your scores gives different min t-DCF - it does not. Are all values the same?')
 
+    with open(metrics_path, 'a+') as fh:
+        st = "21" if config.eval_track != 'In-the-Wild' else ""
+        fh.write(f'---{st}{config.eval_track}---')
+        fh.write(f'{out_data}')
+    fh.close()
+
 
 def evaluate(config, model, device):
     print('######## Eval ########')
-
     model_save_path, best_save_path, model_tag = get_model_save_related(config)
-    if config.eval_track == 'In-the-Wild' and config.pretrained_model_path is None:
-        best_save_path = best_save_path.replace(config.train_track, 'LA')
-        model_save_path = model_save_path.replace(config.train_track, 'LA')
-    
-    print(model_save_path)
-    print(best_save_path)
-    eval_set = get_dataset(config)
+    score_path = os.path.join('./Scores/', config.eval_track, model_tag + '.txt')
 
-    # Load model for evaluation
-    if config.average_model:
-        sdl = []
-        model.load_state_dict(torch.load(os.path.join(best_save_path, 'best_0.pth')))
-        print(f'Model loaded: {os.path.join(best_save_path, "best_0.pth")}')
+    if not os.path.exists(score_path):
+        if config.eval_track == 'In-the-Wild' and config.pretrained_model_path is None:
+            best_save_path = best_save_path.replace(config.train_track, 'LA')
+            model_save_path = model_save_path.replace(config.train_track, 'LA')
         
-        sd = model.state_dict()
-        for i in range(1, config.n_average_model):
-            model.load_state_dict(torch.load(os.path.join(best_save_path, f'best_{i}.pth')))
-            print(f'Model loaded: {os.path.join(best_save_path, f"best_{i}.pth")}')
-            
-            sd2 = model.state_dict()
-            for key in sd:
-                sd[key] = sd[key] + sd2[key]
-                
-        for key in sd:
-            sd[key] = sd[key] / config.n_average_model
-            
-        model.load_state_dict(sd)
-        print(f'Model loaded average of {config.n_average_model} best models in {best_save_path}')
-    else:
-        model.load_state_dict(torch.load(os.path.join(model_save_path, 'best.pth')))
-        print(f'Model loaded: {os.path.join(model_save_path, "best.pth")}')
+        print(model_save_path)
+        print(best_save_path)
+        eval_set = get_dataset(config)
 
-    score_path = os.path.join('./Scores/', 'config.eval_track', model_tag + '.txt')
-    produce_evaluation_file(eval_set, model, device, score_path)
-    get_metrics(config, score_path, phase = 'eval')
+        # Load model for evaluation
+        if config.average_model:
+            sdl = []
+            model.load_state_dict(torch.load(os.path.join(best_save_path, 'best_0.pth')))
+            print(f'Model loaded: {os.path.join(best_save_path, "best_0.pth")}')
+            
+            sd = model.state_dict()
+            for i in range(1, config.n_average_model):
+                model.load_state_dict(torch.load(os.path.join(best_save_path, f'best_{i}.pth')))
+                print(f'Model loaded: {os.path.join(best_save_path, f"best_{i}.pth")}')
+                
+                sd2 = model.state_dict()
+                for key in sd:
+                    sd[key] = sd[key] + sd2[key]
+                    
+            for key in sd:
+                sd[key] = sd[key] / config.n_average_model
+                
+            model.load_state_dict(sd)
+            print(f'Model loaded average of {config.n_average_model} best models in {best_save_path}')
+        else:
+            model.load_state_dict(torch.load(os.path.join(model_save_path, 'best.pth')))
+            print(f'Model loaded: {os.path.join(model_save_path, "best.pth")}')
+        produce_evaluation_file(eval_set, model, device, score_path)
+    
+    else:
+        print(f'Score file {score_path} already exists. Skipping evaluation file production.')
+
+    metrics_path = os.path.join(model_save_path, 'metrics.txt')
+    get_metrics(config, score_path, metrics_path, phase = 'eval')
 
     

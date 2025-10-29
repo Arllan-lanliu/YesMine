@@ -13,9 +13,9 @@ from ..utils.util import read_metadata, genSpoof_list
 def pad(x, max_len):
     x_len = x.shape[0]
     if x_len >= max_len:
-        return x[:max_len]
-    num_repeats = int(max_len / x_len)+1
-    padded_x = np.tile(x, (1, num_repeats))[:, :max_len][0]
+        return x[ : max_len]
+    num_repeats = int(max_len / x_len) + 1
+    padded_x = np.tile(x, (1, num_repeats))[ : , : max_len][0]
     return padded_x	
 
 
@@ -37,7 +37,7 @@ class Dataset_train(Dataset):
         Y = process_rawboost_feature(X, fs, self.rawboost_args, self.algo)
         X_pad = pad(Y, self.cut)
         x_inp = Tensor(X_pad)
-        target = self.labels[utt_id]
+        target = self.labels[utt_id] # 0: bonafide, 1: spoof
         return x_inp, target
     
 
@@ -85,7 +85,7 @@ def get_dataloader(args, subset):
     prefix_2019 = f'ASVspoof2019.{args.train_track}'
 
     if subset == 'train':
-        bach_size = args.batch_size
+        shuffle = True
         drop_last = True
         sub_label, files_id_train = read_metadata(dir_meta =  os.path.join(args.protocols_path, args.train_track, f'{prefix}_cm_protocols', f'{prefix_2019}.cm.train.trn.txt'), is_eval = False)
         sub_dataset = Dataset_train(args, 
@@ -96,7 +96,7 @@ def get_dataloader(args, subset):
         print('no. of train trials', len(files_id_train))
 
     else: # 'dev'
-        bach_size = 8
+        shuffle = False
         drop_last = False
         sub_label, files_id_dev = read_metadata(dir_meta = os.path.join(args.protocols_path, args.train_track, f'{prefix}_cm_protocols', f'{prefix_2019}.cm.dev.trl.txt'), is_eval = False)
         sub_dataset = Dataset_train(args, 
@@ -106,7 +106,7 @@ def get_dataloader(args, subset):
                 algo = args.algo)
         print('no. of validation trials', len(files_id_dev))
         
-    dataloader = DataLoader(sub_dataset, batch_size = bach_size, num_workers = 20, shuffle = False, drop_last = drop_last)
+    dataloader = DataLoader(sub_dataset, batch_size = args.batch_size, num_workers = 20, shuffle = shuffle, drop_last = drop_last)
     del sub_label, sub_dataset
 
     return dataloader
@@ -115,8 +115,6 @@ def get_dataloader(args, subset):
 def get_dataset(args):
 
     track = args.eval_track
-    assert track in ['In-the-Wild', 'LA', 'DF'], "dataset must be 'In-the-Wild', 'LA' or 'DF'"
-    
 
     if track == 'In-the-Wild':
         file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path, track, "meta.csv"), is_train = False, is_eval = True)
@@ -128,7 +126,7 @@ def get_dataset(args):
         prefix_2021 = 'ASVspoof2021.{}'.format(track)
 
         file_eval = read_metadata( dir_meta = os.path.join(args.protocols_path, track, f'{prefix}_cm_protocols', f'{prefix_2021}.cm.eval.trl.txt'), is_eval = True)
-        eval_set = Dataset_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path, track, f'ASVspoof2021_{track}_eval/', track = track))
+        eval_set = Dataset_eval(list_IDs = file_eval, base_dir = os.path.join(args.database_path, track, f'ASVspoof2021_{track}_eval/'), track = track)
         print('no. of eval trials', len(file_eval))
     
     return eval_set

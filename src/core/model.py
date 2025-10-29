@@ -25,6 +25,9 @@ class SSLModel(nn.Module): #W2V
         self.out_dim = 1024
 
     def extract_feat(self, input_data):
+        """
+        input: (batch_size, seq_len)
+        """
         # put the model to GPU if it not there
         if next(self.model.parameters()).device != input_data.device \
            or next(self.model.parameters()).dtype != input_data.dtype:
@@ -38,8 +41,9 @@ class SSLModel(nn.Module): #W2V
             input_tmp = input_data
                 
         # [batch, length, dim]
-        emb = self.model(input_tmp, mask = False, features_only = True)['x']
-        layerresult = self.model(input_tmp, mask = False, features_only = True)['layer_results']
+        extract = self.model(input_tmp, mask = False, features_only = True)
+        emb = extract['x']
+        layerresult = extract['layer_results']
         return emb, layerresult
 
 
@@ -65,11 +69,16 @@ class Model(nn.Module):
                                   fused_add_norm = self.config.fused_add_norm
                                   )
     def forward(self, x):
-        #-------pre-trained Wav2vec model fine tunning ------------------------##
+        """
+         Input:  (batch_size, seq_len) [8, 66800]
+         
+        """
+        #-------pre-trained Wav2vec model fine tunning ------------------------#
         x_ssl_feat, _ = self.ssl_model.extract_feat(x.squeeze(-1))
         x = self.LL(x_ssl_feat) #(bs,frame_number,feat_out_dim) (bs, 208, 256)
         x = x.unsqueeze(dim = 1) # add channel #(bs, 1, frame_number, 256)
         x = self.first_bn(x)
+         #-------Mamba Encoder ------------------------#
         x = self.selu(x)
         x = x.squeeze(dim = 1)
         out = self.conformer(x) 

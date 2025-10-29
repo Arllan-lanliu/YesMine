@@ -46,7 +46,12 @@ if __name__ == '__main__':
     model = model.to(device)
 
     if not config.pretrained_model_path and config.train:
-        train_model(config, model, device)
+        train_model(config, args.config, model, device)
 
+    config.eval_track = "LA"
+    evaluate(config, model, device)
+    config.eval_track = "DF"
+    evaluate(config, model, device)
+    config.eval_track = "In-the-Wild"
     evaluate(config, model, device)
     

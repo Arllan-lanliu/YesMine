@@ -52,16 +52,13 @@ def evaluate_accuracy(dev_loader, model, device):
     return val_loss
 
 
-def train_epoch(train_loader, model, lr, optimizer, device):
+def train_epoch(train_loader, model, lr, optimizer, criterion, device):
     num_total = 0.0
     model.train()
 
-    #set objective (Loss) functions
-    weight = torch.FloatTensor([0.1, 0.9]).to(device)
-    criterion = nn.CrossEntropyLoss(weight=weight)
     num_batch = len(train_loader)
     i=0
-    pbar = tqdm(train_loader, total=num_batch)
+    pbar = tqdm(train_loader, total = num_batch)
     for batch_x, batch_y in pbar:
         batch_size = batch_x.size(0)
         num_total += batch_size
@@ -73,21 +70,27 @@ def train_epoch(train_loader, model, lr, optimizer, device):
         optimizer.zero_grad()
         batch_loss.backward()
         optimizer.step()
-        i=i+1
+        i = i+1
     sys.stdout.flush()
 
 
-def train_model(config, model, device):
+def train_model(config, config_path, model, device):
     print('######## Training ########')
 
     model_save_path, best_save_path, model_tag = get_model_save_related(config)
     print(f'Model tag: {model_tag}')
     
-    train_loader = get_dataloader(config, subset = 'train')
-    dev_loader = get_dataloader(config, subset = 'dev')
+    train_dataloader = get_dataloader(config, subset = 'train')
+    dev_dataloader = get_dataloader(config, subset = 'dev')
     optimizer = torch.optim.Adam(model.parameters(), 
                                 lr = config.lr, 
                                 weight_decay = config.weight_decay)
+    #set objective (Loss) functions
+    if config.loss == 'CE':
+        criterion = nn.CrossEntropyLoss()
+    else: # default 'WCE'
+        weight = torch.FloatTensor([0.1, 0.9]).to(device)
+        criterion = nn.CrossEntropyLoss(weight = weight)
 
     not_improving = 0
     epoch = 0
@@ -103,13 +106,14 @@ def train_model(config, model, device):
     
     best_path = Path(os.path.join(model_save_path, 'best.pth'))
     best_path.parent.mkdir(parents = True, exist_ok = True)
+    os.system(f'cp {config_path} {model_save_path}')
     np.savetxt(best_path, np.array((0, 0)))
 
-    while not_improving < config.num_epochs:
+    while not_improving < config.impove_epoch_patience:
         print(f'######## Epoch {epoch} ########')
         
-        train_epoch(train_loader, model, config.lr, optimizer, device)
-        val_loss = evaluate_accuracy(dev_loader, model, device)
+        train_epoch(train_dataloader, model, config.lr, optimizer, criterion, device)
+        val_loss = evaluate_accuracy(dev_dataloader, model, device)
         
         if val_loss < best_loss:
             best_loss = val_loss
@@ -126,15 +130,14 @@ def train_model(config, model, device):
                     bests[t] = bests[t - 1]
                     os.system(f'mv {best_save_path}/best_{t - 1}.pth {best_save_path}/best_{t}.pth')
                 bests[i] = val_loss
-                torch.save(model.state_dict(), 
-                            os.path.join(best_save_path, f'best_{i}.pth'))
+                torch.save(model.state_dict(), os.path.join(best_save_path, f'best_{i}.pth'))
                 break
         
         print(f'\n{epoch} - {val_loss}')
         print(f'n-best loss: {bests}')
         epoch += 1
         
-        if epoch > 74:
+        if epoch > config.train_epoch:
             break
-            
+             
     print(f'Total epochs: {epoch}\n')

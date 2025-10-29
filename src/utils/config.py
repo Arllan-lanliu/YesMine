@@ -3,6 +3,14 @@ from typing import Optional, Dict, Any, List
 import yaml
 import os
 
+def validate_range(value: float, min_val: float, max_val: float, field_name: str):
+    if not (min_val <= value <= max_val):
+        raise ValueError(f"{field_name} must be between {min_val} and {max_val}, got {value}")
+
+def validate_positive(value: float, field_name: str):
+    if value <= 0:
+        raise ValueError(f"{field_name} must be positive, got {value}")
+
 @dataclass
 class ConvolutiveConfig:
     filters: int
@@ -12,15 +20,57 @@ class ConvolutiveConfig:
     coefficients: Dict[str, float]
     gain: Dict[str, float]
     bias: Dict[str, float]
+    
+    def __post_init__(self):
+        validate_positive(self.filters, "filters")
+        validate_range(self.filters, 1, 100, "filters")
+        
+        validate_positive(self.frequency_bands, "frequency_bands")
+        validate_range(self.frequency_bands, 1, 20, "frequency_bands")
+        
+        validate_range(self.frequency_range['min'], 20, 20000, "frequency_range.min")
+        validate_range(self.frequency_range['max'], 20, 20000, "frequency_range.max")
+        if self.frequency_range['min'] >= self.frequency_range['max']:
+            raise ValueError("frequency_range.min must be less than frequency_range.max")
+        
+        validate_range(self.bandwidth_range['min'], 10, 5000, "bandwidth_range.min")
+        validate_range(self.bandwidth_range['max'], 10, 5000, "bandwidth_range.max")
+        if self.bandwidth_range['min'] >= self.bandwidth_range['max']:
+            raise ValueError("bandwidth_range.min must be less than bandwidth_range.max")
+        
+        validate_range(self.coefficients['min'], 0.0, 1.0, "coefficients.min")
+        validate_range(self.coefficients['max'], 0.0, 1.0, "coefficients.max")
+        if self.coefficients['min'] > self.coefficients['max']:
+            raise ValueError("coefficients.min must be less than coefficients.max")
+        
+        validate_range(self.gain['min'], -50, 50, "gain.min")
+        validate_range(self.gain['max'], -50, 50, "gain.max")
+        if self.gain['min'] >= self.gain['max']:
+            raise ValueError("gain.min must be less than gain.max")
+        
+        validate_range(self.bias['min'], 0.0, 100, "bias.min")
+        validate_range(self.bias['max'], 0.0, 100, "bias.max")
+        if self.bias['min'] >= self.bias['max']:
+            raise ValueError("bias.min must be less than bias.max")
 
 @dataclass
 class ISDNoiseConfig:
     probability: float
     std_dev: float
+    
+    def __post_init__(self):
+        validate_range(self.probability, 0.0, 1.0, "probability")
+        validate_range(self.std_dev, 0.1, 10.0, "std_dev")
 
 @dataclass
 class SSINoiseConfig:
     snr_range: Dict[str, float]
+    
+    def __post_init__(self):
+        validate_range(self.snr_range['min'], 0.0, 50.0, "snr_range.min")
+        validate_range(self.snr_range['max'], 0.0, 50.0, "snr_range.max")
+        if self.snr_range['min'] >= self.snr_range['max']:
+            raise ValueError("snr_range.min must be less than snr_range.max")
 
 @dataclass
 class TrainingConfig:
@@ -48,22 +98,22 @@ class TrainingConfig:
     
     # RawBoost configurations
     convolutive: ConvolutiveConfig = field(default_factory=lambda: ConvolutiveConfig(
-        filters=10,
+        filters=5,
         frequency_bands=5,
         frequency_range={'min': 20, 'max': 8000},
         bandwidth_range={'min': 100, 'max': 1000},
-        coefficients={'min': 0.1, 'max': 0.9},
-        gain={'min': 0.1, 'max': 0.9},
-        bias={'min': 0.1, 'max': 0.9}
+        coefficients={'min': 0, 'max': 0},
+        gain={'min': -20, 'max': -5},
+        bias={'min': 10, 'max': 100}
     ))
     
     isd_noise: ISDNoiseConfig = field(default_factory=lambda: ISDNoiseConfig(
-        probability=0.5,
+        probability_range={'min': 0, 'max': 0.1},
         std_dev=2.0
     ))
     
     ssi_noise: SSINoiseConfig = field(default_factory=lambda: SSINoiseConfig(
-        snr_range={'min': 10.0, 'max': 30.0}
+        snr_range={'min': 10.0, 'max': 40.0}
     ))
     
     algorithm_combinations: Dict[int, List[str]] = field(default_factory=lambda: {
@@ -87,6 +137,37 @@ class TrainingConfig:
     average_model: bool = True
     n_average_model: int = 5
     
+    def __post_init__(self):
+        validate_range(self.lr, 1e-8, 1e-2, "lr")
+
+        validate_range(self.weight_decay, 0.0, 1e-1, "weight_decay")
+        
+        validate_positive(self.batch_size, "batch_size")
+        validate_range(self.batch_size, 1, 512, "batch_size")
+        
+        validate_positive(self.train_epoch, "train_epoch")
+        validate_range(self.train_epoch, 1, 10000, "train_epoch")
+        
+        validate_range(self.algo, 0, 8, "algo")
+        
+        validate_positive(self.emb_size, "emb_size")
+        validate_range(self.emb_size, 8, 1024, "emb_size")
+        
+        validate_positive(self.num_encoders, "num_encoders")
+        validate_range(self.num_encoders, 1, 100, "num_encoders")
+        
+        valid_losses = ["WCE", "CE"]
+        if self.loss not in valid_losses:
+            raise ValueError(f"loss must be one of {valid_losses}, got {self.loss}")
+        
+        valid_train_tracks = ["LA"]
+        if self.train_track not in valid_train_tracks:
+            raise ValueError(f"train_track must be one of {valid_train_tracks}, got {self.train_track}")
+        
+        valid_val_tracks = ["LA", "DF", "In-the-Wild"]
+        if self.eval_track not in valid_val_tracks:
+            raise ValueError(f"eval_track must be one of {valid_val_tracks}, got {self.eval_track}")
+    
     @classmethod
     def from_yaml(cls, config_path: str):
         if not os.path.exists(config_path):
@@ -105,6 +186,7 @@ class TrainingConfig:
             config_dict['ssi_noise'] = SSINoiseConfig(**config_dict['ssi_noise'])
         
         return cls(**config_dict)
+    
     
     def save_to_yaml(self, config_path: str):
         config_dict = self.to_dict()

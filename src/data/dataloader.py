@@ -37,7 +37,7 @@ class Dataset_train(Dataset):
         Y = process_rawboost_feature(X, fs, self.rawboost_args, self.algo)
         X_pad = pad(Y, self.cut)
         x_inp = Tensor(X_pad)
-        target = self.labels[utt_id] # 0: bonafide, 1: spoof
+        target = self.labels[utt_id] # 1: bonafide, 0: spoof
         return x_inp, target
     
 

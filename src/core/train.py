@@ -6,6 +6,7 @@ import os
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import torch.nn.functional as F
 from pathlib import Path
 
 
@@ -13,6 +14,22 @@ from ..utils.util import get_model_save_related
 from ..data.dataloader import get_dataloader
 
 
+class BinaryFocalLoss(nn.Module):
+    def __init__(self, gamma=2.0, alpha=0.25, use_logits=True):
+        super(BinaryFocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.use_logits = use_logits
+        
+    def forward(self, logits, targets):
+        if self.use_logits:
+            bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+        else:
+            bce_loss = F.binary_cross_entropy(logits, targets, reduction='none')
+        pt = torch.exp(-bce_loss)
+        focal_loss = self.alpha * (1-pt)**self.gamma * bce_loss
+        return focal_loss.mean()
+    
 def evaluate_accuracy(dev_loader, model, device):
     val_loss = 0.0
     num_total = 0.0
@@ -28,13 +45,18 @@ def evaluate_accuracy(dev_loader, model, device):
         target = torch.LongTensor(batch_y).to(device)
         num_total += batch_size
         batch_x = batch_x.to(device)
-        batch_y = batch_y.view(-1).type(torch.int64).to(device)
         batch_out = model(batch_x)
-        pred = batch_out.max(1)[1]
+
+        # batch_y = batch_y.to(device)
+        # batch_y = batch_y.float() * 0.9 + 0.05
+        # correct += batch_out.eq(target).sum().item()
+        batch_y = batch_y.view(-1).type(torch.int64).to(device)
+        pred = batch_out.max(1)[1] 
         correct += pred.eq(target).sum().item()
 
         batch_loss = criterion(batch_out, batch_y)
         val_loss += (batch_loss.item() * batch_size)
+
         i=i+1
         print("batch %i of %i (Memory: %.2f of %.2f GiB reserved) (validation)"
                   % (
@@ -64,13 +86,20 @@ def train_epoch(train_loader, model, lr, optimizer, criterion, device):
         num_total += batch_size
 
         batch_x = batch_x.to(device)
-        batch_y = batch_y.view(-1).type(torch.int64).to(device)
         batch_out = model(batch_x)
-        batch_loss = criterion(batch_out, batch_y)
+
+        # batch_y = batch_y.to(device)
+        # batch_y = batch_y.float() * 0.9 + 0.05
+        # batch_loss = criterion(batch_out, batch_y)
+
+        batch_y = batch_y.view(-1).type(torch.int64).to(device)
+        batch_loss = criterion(batch_out, batch_y)          
+
         optimizer.zero_grad()
         batch_loss.backward()
         optimizer.step()
         i = i+1
+
     sys.stdout.flush()
 
 
@@ -85,12 +114,11 @@ def train_model(config, config_path, model, device):
     optimizer = torch.optim.Adam(model.parameters(), 
                                 lr = config.lr, 
                                 weight_decay = config.weight_decay)
-    #set objective (Loss) functions
-    if config.loss == 'CE':
-        criterion = nn.CrossEntropyLoss()
-    else: # default 'WCE'
-        weight = torch.FloatTensor([0.1, 0.9]).to(device)
-        criterion = nn.CrossEntropyLoss(weight = weight)
+    
+    #criterion = BinaryFocalLoss()
+
+    weight = torch.FloatTensor([0.1, 0.9]).to(device)
+    criterion = nn.CrossEntropyLoss(weight = weight)
 
     not_improving = 0
     epoch = 0

@@ -152,9 +152,9 @@ def get_metrics(config, score_file, metrics_path, phase = 'eval'):
 
     with open(metrics_path, 'a+') as fh:
         st = "21" if config.eval_track != 'In-the-Wild' else ""
-        fh.write(f'---{st}{config.eval_track}---')
+        fh.write(f'---{st}{config.eval_track}---\n')
         fh.write(f'{out_data}')
-    fh.close()
+        fh.write('\n')
 
 
 def evaluate(config, model, device):

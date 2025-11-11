@@ -17,8 +17,8 @@ class ConvolutiveConfig:
     frequency_bands: int
     frequency_range: Dict[str, int]
     bandwidth_range: Dict[str, int]
-    coefficients: Dict[str, float]
-    gain: Dict[str, float]
+    coefficients: Dict[str, int]
+    gain: Dict[str, int]
     bias: Dict[str, float]
     
     def __post_init__(self):
@@ -30,36 +30,36 @@ class ConvolutiveConfig:
         
         validate_range(self.frequency_range['min'], 20, 20000, "frequency_range.min")
         validate_range(self.frequency_range['max'], 20, 20000, "frequency_range.max")
-        if self.frequency_range['min'] >= self.frequency_range['max']:
-            raise ValueError("frequency_range.min must be less than frequency_range.max")
+        if self.frequency_range['min'] > self.frequency_range['max']:
+            raise ValueError("frequency_range.min must be less than or equal to frequency_range.max")
         
         validate_range(self.bandwidth_range['min'], 10, 5000, "bandwidth_range.min")
         validate_range(self.bandwidth_range['max'], 10, 5000, "bandwidth_range.max")
-        if self.bandwidth_range['min'] >= self.bandwidth_range['max']:
-            raise ValueError("bandwidth_range.min must be less than bandwidth_range.max")
+        if self.bandwidth_range['min'] > self.bandwidth_range['max']:
+            raise ValueError("bandwidth_range.min must be less than or equal to bandwidth_range.max")
         
-        validate_range(self.coefficients['min'], 0.0, 1.0, "coefficients.min")
-        validate_range(self.coefficients['max'], 0.0, 1.0, "coefficients.max")
+        validate_range(self.coefficients['min'], 0, 100, "coefficients.min")
+        validate_range(self.coefficients['max'], 0, 100, "coefficients.max")
         if self.coefficients['min'] > self.coefficients['max']:
-            raise ValueError("coefficients.min must be less than coefficients.max")
+            raise ValueError("coefficients.min must be less than or equal to coefficients.max")
         
         validate_range(self.gain['min'], -50, 50, "gain.min")
         validate_range(self.gain['max'], -50, 50, "gain.max")
-        if self.gain['min'] >= self.gain['max']:
-            raise ValueError("gain.min must be less than gain.max")
+        if self.gain['min'] > self.gain['max']:
+            raise ValueError("gain.min must be less than or equal to gain.max")
         
-        validate_range(self.bias['min'], 0.0, 100, "bias.min")
-        validate_range(self.bias['max'], 0.0, 100, "bias.max")
-        if self.bias['min'] >= self.bias['max']:
-            raise ValueError("bias.min must be less than bias.max")
+        validate_range(self.bias['min'], 0.0, 100.0, "bias.min")
+        validate_range(self.bias['max'], 0.0, 100.0, "bias.max")
+        if self.bias['min'] > self.bias['max']:
+            raise ValueError("bias.min must be less than or equal to bias.max")
 
 @dataclass
 class ISDNoiseConfig:
-    probability: float
+    probability: int
     std_dev: float
     
     def __post_init__(self):
-        validate_range(self.probability, 0.0, 1.0, "probability")
+        validate_range(self.probability, 0, 100, "probability")
         validate_range(self.std_dev, 0.1, 10.0, "std_dev")
 
 @dataclass
@@ -69,8 +69,8 @@ class SSINoiseConfig:
     def __post_init__(self):
         validate_range(self.snr_range['min'], 0.0, 50.0, "snr_range.min")
         validate_range(self.snr_range['max'], 0.0, 50.0, "snr_range.max")
-        if self.snr_range['min'] >= self.snr_range['max']:
-            raise ValueError("snr_range.min must be less than snr_range.max")
+        if self.snr_range['min'] > self.snr_range['max']:
+            raise ValueError("snr_range.min must be less than or equal to snr_range.max")
 
 @dataclass
 class TrainingConfig:
@@ -102,13 +102,13 @@ class TrainingConfig:
         frequency_bands=5,
         frequency_range={'min': 20, 'max': 8000},
         bandwidth_range={'min': 100, 'max': 1000},
-        coefficients={'min': 0, 'max': 0},
+        coefficients={'min': 0, 'max': 100},
         gain={'min': -20, 'max': -5},
         bias={'min': 10, 'max': 100}
     ))
     
     isd_noise: ISDNoiseConfig = field(default_factory=lambda: ISDNoiseConfig(
-        probability_range={'min': 0, 'max': 0.1},
+        probability_range={'min': 0, 'max': 100},
         std_dev=2.0
     ))
     
@@ -186,7 +186,6 @@ class TrainingConfig:
             config_dict['ssi_noise'] = SSINoiseConfig(**config_dict['ssi_noise'])
         
         return cls(**config_dict)
-    
     
     def save_to_yaml(self, config_path: str):
         config_dict = self.to_dict()

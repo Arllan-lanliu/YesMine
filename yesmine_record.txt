@@ -1,7 +1,7 @@
 nvidia-smi
 
 ----------------------------------------------LA-------------------------------------------------------
-CUDA_VISIBLE_DEVICES=4 python main.py --config='./conf/base.yaml'
+CUDA_VISIBLE_DEVICES=6 python main.py --config='./conf/base.yaml'
 
 python main.py --config='./conf/base.yaml' --override eval_track='DF'
 
@@ -14,44 +14,5 @@ python main.py --config='./conf/base.yaml' --override eval_track='DF'
     Number of trials in the evaluation set: 533928
     eer: 1.88
 InTheWild:
+    Number of trials in the evaluation set: 31779
     err:      6.71  
-------------------------------------isd_noise probability = 0.01----------------------------------------aglo = 5   
-21LA:
-    min_tDCF: 0.2824
-    eer: 3.64
-21DF:
-    eer: 3.85
-InTheWild:
-    err: 5.76    
-------------------------------------isd_noise probability = 0.04----------------------------------------aglo = 5   
-21LA:
-    min_tDCF: 0.2348
-    eer: 1.89
-21DF:
-    eer: 3.36
-InTheWild:
-    err: 6.01   
-------------------------------------isd_noise probability = 0.05----------------------------------------aglo = 5   
-21LA:
-    min_tDCF: 0.2377
-    eer: 2.02
-21DF:
-    eer: 3.56
-InTheWild:
-    err:      6.06 
-------------------------------------isd_noise probability = 0.055----------------------------------------aglo = 5   
-21LA:
-    min_tDCF: 0.2418
-    eer: 2.2
-21DF:
-    eer: 3
-InTheWild:
-    err:      6.14 
-------------------------------------isd_noise probability = 0.08----------------------------------------aglo = 5
-21LA:
-    min_tDCF: 0.2536
-    eer: 2.55
-21DF:
-    eer: 3.94
-InTheWild:
-    err: 7.52     

@@ -43,7 +43,7 @@ keys_path: "./data/keys/"
 wav2vec_path: "./pretrained/xlsr2_300m.pt"    # Path to the pretrained XLSR-Wav2Vec2.0 model
 pretrained_model_path: null        # Path to pretrained model to fine-tune or continue training, null: train from scratch
 train: true                        # Whether to train the model
-model_tag: "train_200_7_p0.03_algo5"                    # Name of the saved model, null: auto-generate name based on configuration
+model_tag: dev                    # Name of the saved model, null: auto-generate name based on configuration
 train_track: "LA"           # Track to train the model on, "LA": train on ASVspoof2019 LA train and dev set
 eval_track: "In-the-Wild"   # Track to evaluate the model on
                             # "LA": evaluate on ASVspoof2021 LA eval set
@@ -51,9 +51,9 @@ eval_track: "In-the-Wild"   # Track to evaluate the model on
                             # "In-the-Wild": evaluate on In-the-Wild dataset
 
 # ============================================ train ============================================
-batch_size: 8               # Batch size
-train_epoch: 200            # Number of training epochs 200
-impove_epoch_patience: 7    # Early stopping patience based on dev set performance 10
+batch_size: 4               # Batch size
+train_epoch: 200            # Number of training epochs, 200
+impove_epoch_patience: 7    # Early stopping patience based on dev set performance, 10
 lr: 0.000001                # Learning rate
 weight_decay: 0.0001        # Weight decay
 loss: "WCE"                 # "CE", "WCE" (default)
@@ -78,17 +78,17 @@ convolutive:
     min: 100                 # Minimum bandwidth (Hz)
     max: 1000                # Maximum bandwidth (Hz)
   coefficients:
-    min: 0                   # Minimum coefficient
-    max: 0                   # Maximum coefficient
+    min: 10                   # Minimum coefficient
+    max: 100                   # Maximum coefficient
   gain:
-    min: -20                 # Minimum gain
-    max: -5                  # Maximum gain
+    min: 0                  # Minimum gain
+    max: 0                  # Maximum gain
   bias:
-    min: 10                  # Minimum bias for linear/non-linear
-    max: 100                 # Maximum bias for linear/non-linear
+    min: 5                  # Minimum bias for linear/non-linear
+    max: 20                 # Maximum bias for linear/non-linear
 
 isd_noise:
-  probability: 0.03          # Probability for impulsive noise [0, 0.1]
+  probability: 10          # Probability(%) for impulsive noise [0, 10]
   std_dev: 2.0               # Standard deviation for impulsive noise
 
 ssi_noise:
